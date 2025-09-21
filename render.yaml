@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: youngi-bot-2-0
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python3 main.py"
+    envVars:
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: WELCOME_CHANNEL_ID
+        sync: false
+      - key: CHAT_CHANNEL_ID
+        sync: false
+      - key: ROLE_REQUEST_CHANNEL_ID
+        sync: false
+      - key: ROLE_R4_ID
+        sync: false
+      - key: ROLE_ADMIN_ID
+        sync: false
+      - key: ROLE_R3_1_ID
+        sync: false
+      - key: ROLE_KOREAN_ID
+        sync: false
+      - key: ROLE_ENGLISH_ID
+        sync: false
