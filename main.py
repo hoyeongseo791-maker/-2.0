@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
-import os, textwrap, json
+# Create deploy-ready files for Render: main.py, keep_alive.py, requirements.txt, runtime.txt, .env example
+from textwrap import dedent
 
-code = r'''# main.py — YOUNGI Bot 2.0 (KR/EN/CN/VI security split) for Render + GitHub
+main_py = r'''# main.py — YOUNGI Bot 2.0 (KR/EN/CN/VI security split) for Render + GitHub
 # --------------------------------------------------------------------
 # Features (updated per request)
 # - Welcome flow: on member join -> country buttons first (Korean/English/China/Vietnam)
@@ -415,7 +415,7 @@ async def _security_flow(ctx: commands.Context, lang: str, need_lang_role_id: in
         print(f"[WARN] Security flow failed ({lang}): {e}")
 
 # --- KR Security ---
-@bot.command(name="보안", aliases=KR_ONLY_NAMES[1:])
+@bot.command(name="보안", aliases=["보안인증", "보안확인"])
 async def cmd_security_kr(ctx: commands.Context):
     await _security_flow(ctx, "KR", ROLE_LANG_KR_ID, ROLE_SECURITY_CERT_KR, SECURITY_CHANNEL_KR_ID, 0)
 
@@ -425,12 +425,12 @@ async def cmd_security_en(ctx: commands.Context):
     await _security_flow(ctx, "EN", ROLE_LANG_EN_ID, ROLE_SECURITY_CERT_EN, SECURITY_CHANNEL_EN_ID, SECONDARY_SECURITY_CHANNEL_EN_ID)
 
 # --- CN Security ---
-@bot.command(name="安全", aliases=CN_ONLY_NAMES[1:])
+@bot.command(name="安全", aliases=["安全验证"])
 async def cmd_security_cn(ctx: commands.Context):
     await _security_flow(ctx, "CN", ROLE_LANG_CN_ID, ROLE_SECURITY_CERT_CN, SECURITY_CHANNEL_CN_ID, SECONDARY_SECURITY_CHANNEL_CN_ID)
 
 # --- VI Security ---
-@bot.command(name="BảoMật", aliases=VI_ONLY_NAMES[:-1] + ["BaoMat"])
+@bot.command(name="BảoMật", aliases=["BaoMat", "BảoMat", "BaoMật"])
 async def cmd_security_vi(ctx: commands.Context):
     await _security_flow(ctx, "VI", ROLE_LANG_VI_ID, ROLE_SECURITY_CERT_VI, SECURITY_CHANNEL_VI_ID, SECONDARY_SECURITY_CHANNEL_VI_ID)
 
@@ -465,12 +465,35 @@ if __name__ == "__main__":
     bot.run(DISCORD_BOT_TOKEN)
 '''
 
-path = "/mnt/data/main_kr_en_cn_vi.py"
-with open(path, "w", encoding="utf-8") as f:
-    f.write(code)
+keep_alive_py = dedent('''\
+from flask import Flask
+from threading import Thread
 
-# also emit a simple .env template for convenience
-env_template = textwrap.dedent("""\
+app = Flask(__name__)
+
+@app.get("/")
+def home():
+    return "ok"
+
+def run():
+    app.run(host="0.0.0.0", port=8080)
+
+def keep_alive():
+    t = Thread(target=run, daemon=True)
+    t.start()
+''')
+
+requirements = dedent('''\
+discord.py>=2.3.2
+pytz>=2024.1
+Flask>=3.0.0
+# If using Python 3.13 on Render, uncomment the next line:
+# audioop-lts>=0.2.1
+''')
+
+runtime = 'python-3.12.4\n'
+
+env_template = dedent('''\
 # ---- REQUIRED ----
 DISCORD_BOT_TOKEN=
 
@@ -507,9 +530,18 @@ ROLE_R3_1_ID=
 
 # ---- SECURITY ----
 SECURITY_PASSWORD=0920
-""")
-env_path = "/mnt/data/.env.youngi.example"
-with open(env_path, "w", encoding="utf-8") as f:
-    f.write(env_template)
+''')
 
-(path, env_path)
+paths = {
+    "/mnt/data/main.py": main_py,
+    "/mnt/data/keep_alive.py": keep_alive_py,
+    "/mnt/data/requirements.txt": requirements,
+    "/mnt/data/runtime.txt": runtime,
+    "/mnt/data/.env.youngi.example": env_template,
+}
+
+for p, content in paths.items():
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(content)
+
+list(paths.keys())
