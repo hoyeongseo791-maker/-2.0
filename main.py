@@ -228,7 +228,7 @@ async def cmd_help(ctx: commands.Context):
         "• `!청소 [n]` / `!Clean [n]` / `!清理 [n]` / `!Dọn [n]` — 메시지 삭제"
     )
 
-@bot.command(name="영이", aliases=["YOUNGI", "영이봇", "Youngi"])
+@bot.command(name="영이", aliases=["YOUNGI", "영이봇"])
 async def cmd_youngi(ctx: commands.Context):
     msgs = [
         "안냥! 영이 왔어 🐾", "오늘도 파이팅 ✨", "영이봇 2.0 준비 완료!", "명령어는 `!명령어`",
