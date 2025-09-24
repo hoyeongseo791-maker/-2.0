@@ -1,5 +1,6 @@
-# main.py — CLEAN (no /mnt/data writes). YOUNGI Bot 2.0 (KR/EN/CN/VI)
+# main.py — CLEAN (no file writes). YOUNGI Bot 2.0 (KR/EN/CN/VI)
 # Start Command on Render: python3 main.py
+
 import os, random
 from datetime import datetime
 import pytz
@@ -38,7 +39,7 @@ CHAT_CHANNEL_ID                    = _get_id("CHAT_CHANNEL_ID")
 ROLE_REQUEST_CHANNEL_ID            = _get_id("ROLE_REQUEST_CHANNEL_ID")
 
 SECURITY_CHANNEL_KR_ID             = _get_id("SECURITY_CHANNEL_KR_ID")              # 📥보안채널📥
-SECURITY_CHANNEL_EN_ID             = _get_id("SECURITY_CHANNEL_EN_ID")              # Security Channel
+SECURITY_CHANNEL_EN_ID             = _get_id("SECURITY_CHANNEL_EN_ID")              # security-channel
 SECURITY_CHANNEL_CN_ID             = _get_id("SECURITY_CHANNEL_CN_ID")              # 安全通道
 SECURITY_CHANNEL_VI_ID             = _get_id("SECURITY_CHANNEL_VI_ID")              # kênh an ninh
 
@@ -73,7 +74,6 @@ ready_once = False
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-
 bot = commands.Bot(command_prefix="!", intents=intents, case_insensitive=True)
 
 # ---------------- Views (buttons) ----------------
@@ -101,7 +101,6 @@ async def on_ready():
     ready_once = True
 
     print(f"✅ Logged in as {bot.user} ({bot.user.id}) | YOUNGI v2.0 (KR/EN/CN/VI)")
-
     bot.add_view(RoleView())
     bot.add_view(CountryView())
 
@@ -125,7 +124,13 @@ async def on_member_join(member: discord.Member):
     if not ch:
         return
     try:
-        await ch.send(f"{member.mention}\n국가/언어를 먼저 선택해주세요.\nPlease choose your language first.\n请先选择语言。\nVui lòng chọn ngôn ngữ trước.", view=CountryView())
+        await ch.send(
+            f"{member.mention}\n국가/언어를 먼저 선택해주세요.\n"
+            "Please choose your language first.\n"
+            "请先选择语言。\n"
+            "Vui lòng chọn ngôn ngữ trước.",
+            view=CountryView()
+        )
     except Exception as e:
         print(f"[WARN] Failed to send country picker on join: {e}")
 
@@ -167,7 +172,7 @@ async def on_interaction(inter: discord.Interaction):
             await inter.followup.send("관리자 역할은 역할신청방에 양식대로 올려주세요! / Please apply for Admin in the role-request channel.", ephemeral=True)
             return
 
-        # ---- Countries ----
+        # ---- Countries -> add role & route to security channel with localized hint ----
         async def _add_role_and_route(lang_role_id: int, security_channel_id: int, tag_text: str, cmd_hint: str):
             if lang_role_id:
                 r = guild.get_role(lang_role_id)
@@ -202,7 +207,10 @@ async def on_interaction(inter: discord.Interaction):
 # ---------------- Commands ----------------
 @bot.command(name="국가", aliases=["Country", "国家", "QuocGia", "QuốcGia"])
 async def cmd_country(ctx: commands.Context):
-    await ctx.send("언어/국가를 선택하세요.\nChoose your language.\n请选择语言。\nHãy chọn ngôn ngữ:", view=CountryView())
+    await ctx.send(
+        "언어/국가를 선택하세요.\nChoose your language.\n请选择语言。\nHãy chọn ngôn ngữ:",
+        view=CountryView()
+    )
 
 @bot.command(name="역할", aliases=["Role", "角色", "VaiTro", "VaiTrò"])
 async def cmd_roles(ctx: commands.Context):
@@ -232,7 +240,7 @@ async def cmd_youngi(ctx: commands.Context):
 @commands.has_permissions(manage_messages=True)
 async def cmd_clean(ctx: commands.Context, amount: int = 5):
     amount = max(1, min(50, amount))
-    deleted = await ctx.channel.purge(limit=amount + 1)
+    deleted = await ctx.channel.purge(limit=amount + 1)  # include the command message
     await ctx.send(f"{max(0, len(deleted)-1)}개의 메시지를 삭제했어요. / Deleted. / 已删除. / Đã xóa.", delete_after=3)
 
 @cmd_clean.error
@@ -253,19 +261,33 @@ async def cmd_report(ctx: commands.Context):
     if admin_ch:
         await admin_ch.send(f"{ctx.author.mention} 신고/Report/举报/Báo cáo 접수.")
 
-# ---------------- Security ----------------
-KR_ONLY_NAMES = ["보안", "보안인증", "보안확인"]
-
+# ---------------- Security (shared flow) ----------------
 def _pw_prompt(lang: str):
-    return {"KR":"비밀번호가 뭔가요? (60초 내 입력)","EN":"What is the password? (enter within 60 seconds)","CN":"密码是什么？（请在60秒内输入）","VI":"Mật khẩu là gì? (nhập trong 60 giây)"}[lang]
+    return {
+        "KR":"비밀번호가 뭔가요? (60초 내 입력)",
+        "EN":"What is the password? (enter within 60 seconds)",
+        "CN":"密码是什么？（请在60秒内输入）",
+        "VI":"Mật khẩu là gì? (nhập trong 60 giây)"
+    }[lang]
 
 def _pw_wrong(lang: str):
-    return {"KR":"❌ 비밀번호가 올바르지 않아요. 다시 시도해주세요.","EN":"❌ Wrong password. Please try again.","CN":"❌ 密码错误。请重试。","VI":"❌ Sai mật khẩu. Vui lòng thử lại."}[lang]
+    return {
+        "KR":"❌ 비밀번호가 올바르지 않아요. 다시 시도해주세요.",
+        "EN":"❌ Wrong password. Please try again.",
+        "CN":"❌ 密码错误。请重试。",
+        "VI":"❌ Sai mật khẩu. Vui lòng thử lại."
+    }[lang]
 
 def _timeout_err(lang: str):
-    return {"KR":"시간 초과 또는 오류가 발생했어요. 다시 시도해주세요.","EN":"Timed out or an error occurred. Please try again.","CN":"超时或发生错误。请重试。","VI":"Hết thời gian hoặc có lỗi xảy ra. Vui lòng thử lại."}[lang]
+    return {
+        "KR":"시간 초과 또는 오류가 발생했어요. 다시 시도해주세요.",
+        "EN":"Timed out or an error occurred. Please try again.",
+        "CN":"超时或发生错误。请重试。",
+        "VI":"Hết thời gian hoặc có lỗi xảy ra. Vui lòng thử lại."
+    }[lang]
 
 async def _security_flow(ctx: commands.Context, lang: str, need_lang_role_id: int, cert_role_id: int, allowed_channel_id: int, secondary_channel_id: int = 0):
+    # Channel guard
     if allowed_channel_id and ctx.channel.id != allowed_channel_id:
         target = bot.get_channel(allowed_channel_id)
         msg = {
@@ -276,6 +298,7 @@ async def _security_flow(ctx: commands.Context, lang: str, need_lang_role_id: in
         }[lang]
         await ctx.reply(msg); return
 
+    # Language role guard
     if need_lang_role_id:
         need_role = ctx.guild.get_role(need_lang_role_id)
         if need_role and need_role not in ctx.author.roles:
@@ -287,6 +310,7 @@ async def _security_flow(ctx: commands.Context, lang: str, need_lang_role_id: in
             }[lang]
             await ctx.reply(msg); return
 
+    # Ask password
     await ctx.send(_pw_prompt(lang))
 
     def check(m: discord.Message):
@@ -295,29 +319,37 @@ async def _security_flow(ctx: commands.Context, lang: str, need_lang_role_id: in
     try:
         msg: discord.Message = await bot.wait_for("message", timeout=60.0, check=check)
         pw = msg.content.strip()
-        try: await msg.delete()
-        except Exception: pass
+        try:
+            await msg.delete()
+        except Exception:
+            pass
 
-        if pw == os.getenv("SECURITY_PASSWORD","0920").strip():
+        if pw == SECURITY_PASSWORD:
             role = ctx.guild.get_role(cert_role_id) if cert_role_id else None
             if not role:
                 await ctx.send("❌ 인증서 역할 ID가 설정되지 않았어요. 관리자에게 문의해주세요."); return
             try:
                 await ctx.author.add_roles(role, reason=f"Security password verification ({lang})")
-                ok = {"KR":f"✅ 인증 성공! {ctx.author.mention} 님께 {role.mention} 역할을 부여했어요.",
-                      "EN":f"✅ Success! {ctx.author.mention} has been granted {role.mention}.",
-                      "CN":f"✅ 成功！已为 {ctx.author.mention} 赋予 {role.mention}。",
-                      "VI":f"✅ Thành công! {ctx.author.mention} đã được cấp {role.mention}."}[lang]
+                ok = {
+                    "KR":f"✅ 인증 성공! {ctx.author.mention} 님께 {role.mention} 역할을 부여했어요.",
+                    "EN":f"✅ Success! {ctx.author.mention} has been granted {role.mention}.",
+                    "CN":f"✅ 成功！已为 {ctx.author.mention} 赋予 {role.mention}。",
+                    "VI":f"✅ Thành công! {ctx.author.mention} đã được cấp {role.mention}."
+                }[lang]
                 await ctx.send(ok)
             except discord.Forbidden:
-                await ctx.send("권한이 부족해 역할을 부여하지 못했습니다. (manage_roles 필요)"); return
+                await ctx.send("권한이 부족해 역할을 부여하지 못했습니다. (manage_roles 필요)")
+                return
 
+            # Secondary channel notice (EN/CN/VI only, KR manual as per spec)
             if lang in ("EN","CN","VI") and secondary_channel_id:
                 sec2 = bot.get_channel(secondary_channel_id)
                 if sec2:
-                    txt = {"EN":"Hello, this is the final verification. Please attach a screenshot where your in-game ID is visible.",
-                           "CN":"您好，最后一步验证，请附上能看见您游戏ID的截图。",
-                           "VI":"Xin chào, đây là bước xác minh cuối. Vui lòng đính kèm ảnh chụp cho thấy ID trong game của bạn."}[lang]
+                    txt = {
+                        "EN":"안녕하세요 마지막 인증입니다. 당신의 인게임 ID가 보이게 스크린샷을 첨부해주세요.",
+                        "CN":"您好，最后一步认证。请附上能看到您游戏ID的截图。",
+                        "VI":"Xin chào, đây là bước xác minh cuối. Vui lòng đính kèm ảnh chụp hiển thị ID trong game của bạn."
+                    }[lang]
                     await sec2.send(f"{ctx.author.mention}\n{txt}")
         else:
             await ctx.send(_pw_wrong(lang))
@@ -326,6 +358,7 @@ async def _security_flow(ctx: commands.Context, lang: str, need_lang_role_id: in
         await ctx.send(_timeout_err(lang))
         print(f"[WARN] Security flow failed ({lang}): {e}")
 
+# ----- Security commands by language -----
 @bot.command(name="보안", aliases=["보안인증","보안확인"])
 async def cmd_security_kr(ctx: commands.Context):
     await _security_flow(ctx, "KR", ROLE_LANG_KR_ID, ROLE_SECURITY_CERT_KR, SECURITY_CHANNEL_KR_ID, 0)
@@ -349,8 +382,10 @@ async def every_morning():
     if now.hour == 9 and now.minute == 0:
         ch = bot.get_channel(CHAT_CHANNEL_ID)
         if ch:
-            try: await ch.send("좋은아침! 라오킹 접속해서 일일보상 챙기세요! / Good morning! / 早上好！/ Chào buổi sáng!")
-            except Exception as e: print(f"[WARN] every_morning send failed: {e}")
+            try:
+                await ch.send("좋은아침! 라오킹 접속해서 일일보상 챙기세요! / Good morning! / 早上好！/ Chào buổi sáng!")
+            except Exception as e:
+                print(f"[WARN] every_morning send failed: {e}")
 
 @tasks.loop(minutes=1)
 async def sunday_11pm():
@@ -358,11 +393,15 @@ async def sunday_11pm():
     if now.weekday() == 6 and now.hour == 23 and now.minute == 0:
         ch = bot.get_channel(CHAT_CHANNEL_ID)
         if ch:
-            try: await ch.send("주간 공지: 내일 출근/등교 준비! / Weekly notice. / 每周提醒。/ Thông báo hàng tuần.")
-            except Exception as e: print(f"[WARN] sunday_11pm send failed: {e}")
+            try:
+                await ch.send("주간 공지: 내일 출근/등교 준비! / Weekly notice. / 每周提醒。/ Thông báo hàng tuần.")
+            except Exception as e:
+                print(f"[WARN] sunday_11pm send failed: {e}")
 
+# ---------------- Run ----------------
 if __name__ == "__main__":
     if not DISCORD_BOT_TOKEN:
         raise SystemExit("Env DISCORD_BOT_TOKEN is empty. Set it in Render.")
     keep_alive()
     bot.run(DISCORD_BOT_TOKEN)
+
